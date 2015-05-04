@@ -1,0 +1,212 @@
+###############################################################################
+## Analysis of HES data via matching
+###############################################################################
+## Loading the data
+load(file = "C:/Users/Philipp/Desktop/Baseline.RData")
+load(file = "C:/Users/Philipp/Desktop/Verlauf.RData")
+
+load("/home/kohlm/Daten/arbeit/Projekte/UKJ/HES/Alle/DatenLaden/Baseline.RData")
+
+## subsetting
+newdata.hes.vs.kristall <- Baseline[which(Baseline$Periode=='Hes'| Baseline$Periode == 'Kristall'),]
+newdata.hes.vs.gel <- Baseline[which(Baseline$Periode=='Hes'| Baseline$Periode == 'Gel'),]
+newdata.gel.vs.kristall <- Baseline[which(Baseline$Periode=='Gel'| Baseline$Periode == 'Kristall'),]
+
+
+## Loading the packages
+library(MatchIt)
+library(Matching)
+library(optmatch)
+library(cem)
+library(rgenoud)
+
+## Preprocessing of data
+ind <- newdata.hes.vs.kristall$Geschlecht != " "
+newdata.hes.vs.kristall <- newdata.hes.vs.kristall[ind,]
+newdata.hes.vs.kristall$Geschlecht <- factor(newdata.hes.vs.kristall$Geschlecht)
+
+match.vars <- c("AKI", "Geschlecht", "Gewicht.kg", "Groesse.cm", "Alter.bei.ITS.Aufn", "Periode", "Dialyse", "ITS.verstorben")
+
+
+ind.na <- rowSums(is.na(newdata.hes.vs.kristall[,match.vars])) > 0
+sum(ind.na)
+
+hes.vs.kristall.clean <- newdata.hes.vs.kristall[!ind.na,]
+
+## Creating the treatment indicator
+treat1 <- hes.vs.kristall.clean$Periode=='Hes'
+number.hes.cases <- sum(treat1)
+number.all.cases <- length(treat1)
+number.kristall.cases <- length(treat1)-sum(treat1)
+number.hes.cases 
+number.all.cases 
+number.kristall.cases
+
+
+###############################################################################
+## Nearest neighbor matching
+###############################################################################
+m.out.nn <- matchit(treat1 ~ Geschlecht + Gewicht.kg + Groesse.cm + Alter.bei.ITS.Aufn, 
+                    data = hes.vs.kristall.clean[,match.vars], method = "nearest")
+m.out.nn
+
+## Numerical Balance Check 
+summary(m.out.nn)
+## Graphical Balance Check
+plot(m.out.nn, col=4)
+## The jitter plot (in my opinion very important, because intuitively interpretable)
+plot(m.out.nn, type = "jitter", col=4)
+## Histograms of the Propensity Scores (also important, because Matched Treated and Matched Control should be similar)
+plot(m.out.nn, type = "hist", col=4)
+
+## save the data
+matched.nn <- match.data(m.out.nn)
+## better use save
+save(matched.nn, file = "matchedNNlogreg.RData")
+load(file = "matchedNNlogreg.RData")
+
+# conducting analysis after matching
+# comparison of the risks depedent on drug
+tapply(matched.nn$AKI, matched.nn$Periode, mean)
+
+# Testing for significance
+table(matched.nn$AKI, matched.nn$Periode)
+fisher.test(table(matched.nn$AKI, matched.nn$Periode))
+
+
+###############################################################################
+## subclassification
+###############################################################################
+m.out.subclass <- matchit(treat1 ~ Geschlecht + Gewicht.kg + Groesse.cm + Alter.bei.ITS.Aufn, 
+                          data = hes.vs.kristall.clean[,match.vars], method = "subclass")
+m.out.subclass
+
+## Numerical Balance Check 
+summary(m.out.subclass)
+## Graphical Balance Check (QQ plots)
+plot(m.out.subclass, col=4)
+## The jitter plot (in my opinion very important, because intuitively interpretable)
+plot(m.out.subclass, type = "jitter", col=4)
+## Histograms of the Propensity Scores (also important, because Matched Treated and Matched Control should be similar)
+plot(m.out.subclass, type = "hist", col="blue")
+
+## save the data
+matched.subclass <- match.data(m.out.subclass)
+## better use save
+save(matched.subclass, file = "matched.subclass.RData")
+load(file = "matched.subclass.RData")
+
+# conducting analysis after matching
+# comparison of the risks depedent on drug
+tapply(matched.subclass$AKI, matched.subclass$Periode, mean)
+
+# Testing for significance
+table(matched.subclass$AKI, matched.subclass$Periode)
+fisher.test(table(matched.subclass$AKI, matched.subclass$Periode))
+
+
+
+
+###############################################################################
+## Genetic matching (Sekhon)
+###############################################################################
+m.out.genetic <- matchit(treat1 ~ Geschlecht + Gewicht.kg + Groesse.cm + Alter.bei.ITS.Aufn, 
+                         data = hes.vs.kristall.clean[,match.vars], method = "genetic")
+m.out.genetic
+
+save("m.out.genetic", file="m.out.genetic.RData")
+load(file="m.out.genetic.RData")
+matched.gen <- match.data(m.out.genetic)
+
+## Numerical Balance Check 
+summary(m.out.genetic)
+## Graphical Balance Check
+plot(m.out.genetic, col=4)
+## The jitter plot (in my opinion very important, because intuitively interpretable)
+plot(m.out.genetic, type = "jitter", col=4)
+## Histograms of the Propensity Scores (also important, because Matched Treated and Matched Control should be similar)
+plot(m.out.genetic, type = "hist", col=4)
+
+# conducting analysis after matching
+# comparison of the risks depedent on drug
+tapply(matched.gen$AKI, matched.gen$Periode, mean)
+
+# Testing for significance
+table(matched.gen$AKI, matched.gen$Periode)
+fisher.test(table(matched.gen$AKI, matched.gen$Periode))
+
+
+
+###############################################################################
+## exact matching
+###############################################################################
+m.out.exact <- matchit(treat1 ~ Geschlecht + Gewicht.kg + Groesse.cm + Alter.bei.ITS.Aufn, 
+                       data = hes.vs.kristall.clean[,match.vars], method = "exact")
+m.out.exact
+
+matched.exact <- match.data(m.out.exact)
+## Numerical Balance Check 
+summary(m.out.exact)
+
+# conducting analysis after matching
+# comparison of the risks depedent on drug
+tapply(matched.exact$AKI, matched.exact$Periode, mean)
+
+
+# conducting analysis after matching
+# comparison of the risks depedent on drug
+tapply(matched.exact$AKI, matched.exact$Periode, mean)
+
+# Testing for significance
+table(matched.exact$AKI, matched.exact$Periode)
+fisher.test(table(matched.exact$AKI, matched.exact$Periode))
+
+
+
+
+
+###############################################################################
+## full matching
+###############################################################################
+m.out.full <- matchit(treat1 ~ Geschlecht + Gewicht.kg + Groesse.cm + Alter.bei.ITS.Aufn, 
+                      data = hes.vs.kristall.clean[,match.vars], method = "full")
+m.out.full
+
+## Numerical Balance Check 
+summary(m.out.full)
+## Graphical Balance Check
+plot(m.out.full, col=4)
+## The jitter plot (in my opinion very important, because intuitively interpretable)
+plot(m.out.full, type = "jitter", col=4)
+## Histograms of the Propensity Scores (also important, because Matched Treated and Matched Control should be similar)
+plot(m.out.full, type = "hist", col=4)
+
+
+###############################################################################
+## cem matching
+###############################################################################
+m.out.cem <- matchit(treat1 ~ Geschlecht + Gewicht.kg + Groesse.cm + Alter.bei.ITS.Aufn, 
+                     data = hes.vs.kristall.clean[,match.vars], method = "cem")
+m.out.cem
+
+## Numerical Balance Check 
+summary(m.out.cem)
+## Graphical Balance Check
+plot(m.out.cem, col=4)
+## The jitter plot (in my opinion very important, because intuitively interpretable)
+plot(m.out.cem, type = "jitter", col=4)
+## Histograms of the Propensity Scores (also important, because Matched Treated and Matched Control should be similar)
+plot(m.out.cem, type = "hist", col=4)
+
+matched.cem <- match.data(m.out.cem)
+
+# conducting analysis after matching
+# comparison of the risks depedent on drug
+tapply(matched.cem$AKI, matched.cem$Periode, mean)
+
+
+# Testing for significance
+table(matched.cem$AKI, matched.cem$Periode)
+fisher.test(table(matched.cem$AKI, matched.cem$Periode))
+
+
