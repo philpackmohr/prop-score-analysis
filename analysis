@@ -2,10 +2,8 @@
 ## Analysis of HES data via matching
 ###############################################################################
 ## Loading the data
-load(file = "C:/Users/Philipp/Desktop/Baseline.RData")
-load(file = "C:/Users/Philipp/Desktop/Verlauf.RData")
 
-load("/home/kohlm/Daten/arbeit/Projekte/UKJ/HES/Alle/DatenLaden/Baseline.RData")
+load("/home/philipp/Daten/UKJ/HES/Alle/DatenLaden/Baseline.RData")
 
 ## subsetting
 newdata.hes.vs.kristall <- Baseline[which(Baseline$Periode=='Hes'| Baseline$Periode == 'Kristall'),]
